@@ -3,7 +3,7 @@
   const currentPath = window.location.pathname;
 
   // Cek apakah URL berakhiran /promotorBK/ atau /promotorBK
-  if (currentPath.endsWith('/promotorBK/') || currentPath.endsWith('/promotorBK')) {
+  if (currentPath.endsWith('/promotorBK/index.php') || currentPath.endsWith('/promotorBK')) {
 
     // Jalankan penimpaan tampilan setelah DOM siap
     const showMaintenance = () => {
